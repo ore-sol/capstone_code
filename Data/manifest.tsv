@@ -1,1 +1,3 @@
-test_data   ~/Documents/capstone_code/Data/test_data.fastq  ~/Documents/capstone_code/Data/test_data.fastq 
+sample-id	forward-absolute-path	reverse-absolute-path
+test_data	~/Documents/capstone_code/Data/test_data.fastq	~/Documents/capstone_code/Data/test_data.fastq
+test_data2	~/Documents/capstone_code/Data/test_data2.fastq	~/Documents/capstone_code/Data/test_data2.fastq
