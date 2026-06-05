@@ -3,18 +3,24 @@ rm(list=ls())
 ## -------------- load in packages ## -------------- 
 
 packages <- list('dplyr', 'terra','sf','vegan','ggplot2', 'tidyr','conflicted',
-                 'landscapemetrics', 'BiocManager', 'phyloseq')
+                 'landscapemetrics', 'BiocManager', 'phyloseq','reshape2')
 lapply(packages,library, character.only=TRUE)
 
 ## -------------- take in csv files from output ## --------------
 
-field_metadata <- read.csv('Documents/capstone_code/Data/wheat_kits/sample_field_data1.csv')
+field_metadata <- read.csv('../Data/wheat_kits/sample_field_data1.csv')
 
 #import and format colnames to match metadata
-fungi2 <- read.csv('Documents/capstone_code/Data/wheat_kits/2_UREN_WP1_ITS_COLLAPSED_99_FARMKITS_ONLY.csv')
+fungi2 <- read.csv('../Data/wheat_kits/2_UREN_WP1_ITS_COLLAPSED_99_FARMKITS_ONLY.csv')
 colnames(fungi2) <- gsub("Sample_","", colnames(fungi2)) 
 colnames(fungi2) <- gsub("hifi_reads_.*","hifi_reads",colnames(fungi2)) 
 colnames(fungi2) <- gsub("..bc","--bc",colnames(fungi2), fixed = TRUE) 
+
+new.fungi2 <- melt(fungi2)
+#new.fungi2 <- subset(new.fungi2, select = -variable) %>% unique() 
+new.fungi2 <- new.fungi2[!is.na(new.fungi2$family),] 
+new.fungi2 <- new.fungi2[new.fungi2$family !="",] 
+
 
 #import and format colnames to match metadata
 fungi <- read.csv('../Data/wheat_kits/UREN_WP1_ITS_COLLAPSED_99_FARMKITS_ONLY.csv')
@@ -22,15 +28,24 @@ colnames(fungi) <- gsub("Sample_","", colnames(fungi))
 colnames(fungi) <- gsub("hifi_reads_.*","hifi_reads",colnames(fungi)) 
 colnames(fungi) <- gsub("..bc","--bc",colnames(fungi), fixed = TRUE) 
 
-#import and format colnames to match metadata
-bacteria <- read.csv('Documents/capstone_code/Data/wheat_kits/UREN_16S_Collapsed_99_updated.csv')
-colnames(fungi2) <- gsub("Sample_","", colnames(fungi2)) 
-colnames(fungi2) <- gsub("hifi_reads_.*","hifi_reads",colnames(fungi2)) 
-colnames(fungi2) <- gsub("..bc","--bc",colnames(fungi2), fixed = TRUE) 
+new.fungi <- melt(fungi)
+#new.fungi <- subset(new.fungi, select = -variable) %>% unique() 
+new.fungi <- new.fungi[!is.na(new.fungi$family),] 
+new.fungi <- new.fungi[new.fungi$family !="",] 
 
+#import and format colnames to match metadata
+bacteria <- read.csv('../Data/wheat_kits/UREN_16S_Collapsed_99_updated.csv')
+colnames(bacteria) <- gsub("Sample_","", colnames(bacteria)) 
+colnames(bacteria) <- gsub("hifi_reads_.*","hifi_reads",colnames(bacteria)) 
+colnames(bacteria) <- gsub("..bc","--bc",colnames(bacteria), fixed = TRUE) 
+
+new.bacteria <- bacteria[!grep("*hifi_reads*",colnames(bacteria))] %>% melt()
+new.bacteria <- melt(bacteria)
+new.bacteria <- subset(new.bacteria, select = -variable) %>% unique() 
+new.bacteria <- new.bacteria[!is.na(new.bacteria$family),] 
+new.bacteria <- new.bacteria[new.bacteria$family !="",] 
 
 #read what columns are there and relevant for: , generally looking through the data 
-summary(fungi)
 colnames(fungi)
 colnames(fungi2)
 colnames(bacteria)
@@ -47,17 +62,12 @@ colnames(field_metadata)
 takeall <- field_metadata[!field_metadata$take_all_seen =="unknown" & !is.na(field_metadata$take_all_seen),]
 
 #wrangle data 
-takeall<- takeall[c('SampleID','take_all_seen')] #now you can join to fungi df
+takeall<- takeall[c('SampleID','take_all_seen')] #now you can join to fungi / bacterial df
 
-wrangled.takeall <- takeall %>% 
-  pivot_wider(names_from= SampleID, values_from = take_all_seen)
 
-#a few checks- not all names will be in wrangled  
-#grep('3_demultiplex.bc1015--bc1035.hifi_reads', colnames(fungi))
-#grep('3_demultiplex.bc1015--bc1035.hifi_reads', colnames(wrangled.takeall))
-#grep('1_demultiplex.bc1005--bc1101.hifi_reads',colnames(wrangled.takeall))
+## ultimately i think an if statement might just be faster & more reprod. than all this ...
 
-####
+
 
 
 ## -------------- rank soils by microorg composition (relative) ## -------------- 
