@@ -1,0 +1,36 @@
+#!/bin/bash
+#PBS -l walltime=55:00:00
+#PBS -l select=1:ncpus=12:mem=64gb
+#PBS -j oe
+#PBS -o logs/
+
+cd $PBS_O_WORKDIR
+
+eval "$(~/miniforge3/bin/conda shell.bash hook)"
+conda activate gapseq
+
+mkdir -p logs
+
+run_gapseq() {
+    local INFILE=$1
+    local BASENAME=$(basename "$INFILE" .fna)
+
+    echo "[RUN] gapseq on: $BASENAME"
+
+    gapseq find -p all -b 12 "$INFILE"
+    gapseq find-transport -b 12 "$INFILE"
+    gapseq draft \
+        -r "${BASENAME}-all-Reactions.tbl" \
+        -t "${BASENAME}-Transporter.tbl" \
+        -p "${BASENAME}-all-Pathways.tbl" \
+
+    echo "[DONE] $BASENAME"
+}
+
+export -f run_gapseq
+
+find "$PBS_O_WORKDIR/mash/results/best_genomes" -name "*.fna" | \
+    xargs -P 12 -I {} bash -c 'run_gapseq "$@"' _ {}
+
+find "$PBS_O_WORKDIR/gapseq_output" -name "*-draft.xml" | sort > "$PBS_O_WORKDIR/draft_list.txt"
+echo "[INFO] draft_list.txt generated with $(wc -l < "$PBS_O_WORKDIR/draft_list.txt") entries"

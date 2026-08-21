@@ -1,0 +1,53 @@
+#PBS -N mash_pipeline_3
+#PBS -l select=1:ncpus=12:mem=32gb
+#PBS -l walltime=12:00:00
+#PBS -j oe
+
+
+module load BEDTools
+ml tools/prod
+ml Python
+
+cd $PBS_O_WORKDIR/barrnap_results
+
+eval "$(~/miniforge3/bin/conda shell.bash hook)"
+conda activate barrnap
+
+bash ../barrnap_extract.sh
+
+conda deactivate 
+
+mkdir ../mash
+
+cd $PBS_O_WORKDIR/mash
+
+mkdir genus_genomes
+mkdir results
+
+mv ../barrnap_results/*_16S genus_genomes
+
+conda activate mash
+
+# debug — print what the scheduler actually set
+echo "[DEBUG] NCPUS=$NCPUS"
+echo "[DEBUG] PBS_NP=${PBS_NP:-unset}"
+echo "[DEBUG] nproc=$(nproc)"
+
+
+bash ../rename_genus_folders.sh \
+    --genus-dir genus_genomes \
+    --table     ../genus_taxids.csv
+
+bash ../mash_analysis3.sh \
+    --genus-dir genus_genomes \
+    --asv-fasta ../genus_ASVs.fasta \
+    --output    results/mash_results.tsv
+
+
+python ../get_best_genomes.py \
+    --input      results/mash_results.tsv \
+    --output     results/mash_best_hits.tsv \
+    --taxon-csv  ../genus_taxids.csv \
+    --genome-dir ../unzipped \
+    --copy-to    results/best_genomes
+

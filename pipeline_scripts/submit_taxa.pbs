@@ -1,0 +1,13 @@
+#!/bin/bash
+#PBS -l walltime=15:00:00
+#PBS -l select=1:ncpus=8:mem=12gb
+
+ml tools/prod
+ml Python
+
+eval "$(~/miniforge3/bin/conda shell.bash hook)"
+cd $PBS_O_WORKDIR
+
+conda activate ncbi_download 
+
+python taxid.py

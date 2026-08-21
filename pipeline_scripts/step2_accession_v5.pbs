@@ -1,0 +1,40 @@
+#!/bin/bash
+#PBS -l walltime=12:00:00
+#PBS -l select=1:ncpus=4:mem=8gb
+#PBS -j oe
+#PBS -o logs/
+
+ml tools/prod
+ml Python
+
+cd $PBS_O_WORKDIR
+
+eval "$(~/miniforge3/bin/conda shell.bash hook)"
+conda activate ncbi_download
+
+mkdir -p ncbi_cli logs
+
+download_acc() {
+    local ACC=$1
+
+    if [[ -f "ncbi_cli/${ACC}.zip" ]]; then
+        echo "[SKIP] ${ACC} already downloaded."
+        return 0
+    fi
+
+    for attempt in 1 2 3; do
+        datasets download genome taxon "$ACC" --reference \
+            --assembly-level complete,chromosome \
+            --filename "ncbi_cli/${ACC}.zip" && \
+            echo "[DONE] ${ACC}" && return 0
+        echo "[WARN] Attempt ${attempt}/3 failed for ${ACC}, retrying..."
+        sleep 30
+    done
+
+    echo "[ERROR] All attempts failed for ${ACC}"
+}
+
+export -f download_acc
+
+# Run 4 downloads in parallel (matches ncpus=4)
+xargs -P 4 -L 1 bash -c 'download_acc "$@"' _ < genera_ncbi_ids.txt

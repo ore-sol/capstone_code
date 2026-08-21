@@ -1,30 +1,30 @@
 #put code description at top like in class tutorials 
 # you will still need a mapping file 
 
-#link to all runs: https://www.ncbi.nlm.nih.gov/Traces/study/?acc=SRP336931
-
-setwd('/media/ore-s/TOSHIBA EXT/CAPSTONE_ICL_25')
+#see Notion to see which BioProjects have been downloaded 
 
 # -------- load packages and metadata 
 packages <- list('dada2', 'phyloseq', 'ggplot2', 'DECIPHER', 'phangorn','dplyr','readr',
                  'BiocManager', 'phyloseq','reshape2')
 lapply(packages, library, character.only=TRUE)
 
+setwd('/media/ore-s/0E10-169F/capstone26/sra_2')
+
 # -------- load / edit seq metadata file -- this step probably wont be in pipeline since metadata varies so much ...
-metadata <- read.csv('data/sra_1/SraRunTable.csv')
-seq_nums <- read_tsv('data/sra_1/SRR_Acc_List-new.txt',col_names=FALSE) #file that has list of downloaded seq 
+metadata <- read.csv('SraRunTable.csv')
+seq_nums <- read_tsv('SRR_Acc_List.txt',col_names=FALSE) #file that has list of downloaded seq 
 colnames(seq_nums)[1] = 'Run'
 
-meta2 <- metadata[c('Run','Sample_ID','Sample.Name')] %>% inner_join(seq_nums, by="Run")
+#meta2 <- metadata[c('Run','Sample_ID','Sample.Name')] %>% inner_join(seq_nums, by="Run")
 
 # --------- load seq data
-seq_path <- 'data/sra_1/fastqfiles_1' #file where the seq are located
+seq_path <- 'data' #file where the seq are located
 list.files(seq_path)
 
 #sort forward and reverse reads 
 # forward and reverse fastq filenames have format: SAMPLENAME_R1_001.fastq and SAMPLENAME_R2_001.fastq
-fnFs <- sort(list.files(seq_path, pattern="_R1_001.fastq", full.names = TRUE))
-fnRs <- sort(list.files(seq_path, pattern="_R2_001.fastq", full.names = TRUE))
+fnFs <- sort(list.files(seq_path, pattern="_R1_001.fastq.gz", full.names = TRUE))
+fnRs <- sort(list.files(seq_path, pattern="_R2_001.fastq.gz", full.names = TRUE))
 # Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
 sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
 
@@ -45,12 +45,12 @@ ggsave(r.plots, filename='r-plot.png')
 
 # Place filtered files in filtered/ subdirectory
 
-filtFs <- file.path(seq_path, "filtered_use", paste0(sample.names, "_F_filt.fastq.gz"))
-filtRs <- file.path(seq_path, "filtered_use", paste0(sample.names, "_R_filt.fastq.gz"))
+filtFs <- file.path(seq_path, "filtered", paste0(sample.names, "_F_filt.fastq.gz"))
+filtRs <- file.path(seq_path, "filtered", paste0(sample.names, "_R_filt.fastq.gz"))
 names(filtFs) <- sample.names
 names(filtRs) <- sample.names
 
-filtered <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, trimLeft=c(50,50), truncLen=c(250,250), #240 is for forward seq, 240 is for reverse seq
+filtered <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(240,240), #240 is for forward seq, 240 is for reverse seq
                           maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
                           compress=TRUE, multithread=TRUE)
 
@@ -93,7 +93,7 @@ head(track)
 
 # -------- assign taxonomy based on SILVA database
 
-taxa <- assignTaxonomy(seqtab.nochim, "Documents/sra-test-data/silva_nr99_v138.2_toGenus_trainset.fa.gz", multithread=TRUE)
+taxa <- assignTaxonomy(seqtab.nochim, "~/Documents/sra-test-data/silva_nr99_v138.2_toGenus_trainset.fa.gz", multithread=TRUE)
 
 taxa <- addSpecies(taxa, "silva_nr99_v138.2_toSpecies_trainset.fa.gz")
 
@@ -142,8 +142,8 @@ left_join(family_id, asv_info, by='ASV') %>% write.csv('family_sample_asv_seqtab
 write.csv(asv_fasta, 'sra_1_inputpicrust2.fna')
 
 # --------------- formatting for picrust2
-# Extract ASV sequences from the column names of your ASV table (seqtab)
-asv_seqs <- colnames(seqtab)
+# Extract ASV sequences from the column names of your ASV table (seqtab.nochim)
+asv_seqs <- colnames(seqtab.nochim)
 
 # Create custom headers (e.g., ASV1, ASV2, etc.)
 asv_headers <- paste0(">ASV", seq_along(asv_seqs))
@@ -152,7 +152,7 @@ asv_headers <- paste0(">ASV", seq_along(asv_seqs))
 asv_fasta <- c(rbind(asv_headers, asv_seqs))
 
 # Write to a FASTA file
-writeLines(asv_fasta, "asv_sequences.fasta")
+writeLines(asv_fasta, "asv_sequences_fasta.fasta")
 
 
 # Transpose your ASV table so samples are rows and ASVs are columns
@@ -164,4 +164,4 @@ rownames(seqtab_transposed) <- paste0("ASV", seq_along(asv_seqs))
 # Add a column for the ASV ID (required by PICRUSt2)
 seqtab_final <- cbind(Sequence_ID = rownames(seqtab_transposed), seqtab_transposed)
 
-write.table(seqtab_final, file="asv_table.tsv", sep="\t", row.names=FALSE, quote=FALSE)
+write.table(seqtab_final, file="asv_biome_table.tsv", sep="\t", row.names=FALSE, quote=FALSE)

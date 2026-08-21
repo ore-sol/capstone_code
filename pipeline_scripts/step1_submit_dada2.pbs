@@ -1,0 +1,16 @@
+#!/bin/bash
+#PBS -l walltime=48:00:00
+#PBS -l select=1:ncpus=32:mem=256gb
+
+
+ml tools/prod
+ml R-bundle-ICL
+ml R/4.3.2-gfbf-2023a
+
+eval "$(~/miniforge3/bin/conda shell.bash hook)"
+
+cd $PBS_O_WORKDIR
+
+conda activate dada2-v1.40
+
+Rscript step1_full_dada2.R

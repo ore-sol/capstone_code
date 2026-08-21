@@ -1,0 +1,51 @@
+#!/bin/bash
+#PBS -l walltime=12:00:00
+#PBS -l select=1:ncpus=6:mem=12gb
+
+ml tools/prod
+ml Python
+
+eval "$(~/miniforge3/bin/conda shell.bash hook)"
+conda activate barrnap
+
+NCBI_CLI_DIR="$PBS_O_WORKDIR/ncbi_cli"
+
+run_barrnap() {
+    local ZIP_FILE=$1
+    local TAXID=$(basename "$ZIP_FILE" .zip)
+
+    # Unzip
+    local WORK_DIR="$PBS_O_WORKDIR/unzipped/${TAXID}"
+    mkdir -p "$WORK_DIR"
+    unzip -o "$ZIP_FILE" -d "$WORK_DIR"
+
+    # Output dir
+    local OUT_DIR="$PBS_O_WORKDIR/barrnap_results/${TAXID}"
+    mkdir -p "$OUT_DIR"
+
+    # Run barrnap on every FASTA found
+    while IFS= read -r FASTA; do
+        local SAMPLE=$(basename "$FASTA")
+        SAMPLE="${SAMPLE%.fna}"
+        SAMPLE="${SAMPLE%.fasta}"
+
+        barrnap \
+            --kingdom bac \
+            --threads 1 \
+            --outseq "${OUT_DIR}/${SAMPLE}_rRNA.fasta" \
+            "$FASTA" \
+            > "${OUT_DIR}/${SAMPLE}_barrnap.gff"
+
+        if [[ ! -s "${OUT_DIR}/${SAMPLE}_rRNA.fasta" ]]; then
+            echo "[WARN] No rRNA found: $SAMPLE"
+        else
+            echo "[DONE] $SAMPLE"
+        fi
+    done < <(find "$WORK_DIR" -type f \( -name "*.fna" -o -name "*.fasta" \))
+}
+
+export -f run_barrnap
+export PBS_O_WORKDIR
+
+# Run up to 6 zips in parallel (matches ncpus=6)
+find "$NCBI_CLI_DIR" -name "*.zip" | xargs -P 6 -I {} bash -c 'run_barrnap "$@"' _ {}

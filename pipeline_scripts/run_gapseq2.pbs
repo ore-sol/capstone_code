@@ -1,0 +1,19 @@
+#!/bin/bash
+#PBS -l walltime=55:00:00
+#PBS -l select=1:ncpus=12:mem=64gb
+#PBS -J 1-336%50
+
+cd $PBS_O_WORKDIR
+
+eval "$(~/miniforge3/bin/conda shell.bash hook)"
+conda activate gapseq
+
+INFILE=$(sed -n "${PBS_ARRAY_INDEX}p" genome_list.txt)
+BASENAME=$(basename "$INFILE" .fna)
+
+#generate the *-Transporter.tbl and *-Pathways.tbl
+gapseq find -p all -b 12 "$INFILE" #name of insert fasta- which can be zipped
+gapseq find-transport -b 12 "$INFILE"
+
+# use the *.tbl files to create the draft metabolic model 
+gapseq draft -r ${BASENAME}-all-Reactions.tbl -t ${BASENAME}-Transporter.tbl -p ${BASENAME}-all-Pathways.tbl
