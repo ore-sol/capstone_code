@@ -1,0 +1,7 @@
+# Large data files
+*.fastq
+*.tif
+*.gz
+*.csv
+*.stockholm
+
