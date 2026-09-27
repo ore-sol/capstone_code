@@ -11,11 +11,35 @@ conda activate gapseq
 
 mkdir -p logs
 
+SCRIPT_START=$(date +%s)
+PROGRESS_LOG="$PBS_O_WORKDIR/logs/progress.log"
+LOCK_FILE="$PBS_O_WORKDIR/logs/progress.lock"
+: > "$PROGRESS_LOG"
+
+fmt_time() {
+    local t=$1
+    printf '%02d:%02d:%02d' $((t/3600)) $((t%3600/60)) $((t%60))
+}
+export -f fmt_time
+
+log_msg() {
+    local msg="$1"
+    local elapsed
+    elapsed=$(( $(date +%s) - SCRIPT_START ))
+    (
+        flock -x 200
+        echo "[elapsed $(fmt_time "$elapsed")] $msg" | tee -a "$PROGRESS_LOG"
+    ) 200>"$LOCK_FILE"
+}
+export -f log_msg
+export SCRIPT_START PROGRESS_LOG LOCK_FILE
+
 run_gapseq() {
     local INFILE=$1
     local BASENAME=$(basename "$INFILE" .fna)
+    local GENOME_START=$(date +%s)
 
-    echo "[RUN] gapseq on: $BASENAME"
+    log_msg "[RUN] gapseq on: $BASENAME"
 
     gapseq find -p all -b 12 "$INFILE"
     gapseq find-transport -b 12 "$INFILE"
@@ -24,7 +48,8 @@ run_gapseq() {
         -t "${BASENAME}-Transporter.tbl" \
         -p "${BASENAME}-all-Pathways.tbl" \
 
-    echo "[DONE] $BASENAME"
+    local GENOME_TIME=$(( $(date +%s) - GENOME_START ))
+    log_msg "[DONE] $BASENAME - finished in $(fmt_time $GENOME_TIME)"
 }
 
 export -f run_gapseq
@@ -33,4 +58,4 @@ find "$PBS_O_WORKDIR/mash/results/best_genomes" -name "*.fna" | \
     xargs -P 12 -I {} bash -c 'run_gapseq "$@"' _ {}
 
 find "$PBS_O_WORKDIR/gapseq_output" -name "*-draft.xml" | sort > "$PBS_O_WORKDIR/draft_list.txt"
-echo "[INFO] draft_list.txt generated with $(wc -l < "$PBS_O_WORKDIR/draft_list.txt") entries"
+log_msg "[INFO] draft_list.txt generated with $(wc -l < "$PBS_O_WORKDIR/draft_list.txt") entries"
