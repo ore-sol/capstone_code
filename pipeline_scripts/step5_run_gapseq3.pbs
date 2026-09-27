@@ -10,6 +10,7 @@ eval "$(~/miniforge3/bin/conda shell.bash hook)"
 conda activate gapseq
 
 mkdir -p logs
+mkdir -p "$PBS_O_WORKDIR/gapseq_output"
 
 SCRIPT_START=$(date +%s)
 PROGRESS_LOG="$PBS_O_WORKDIR/logs/progress.log"
@@ -41,12 +42,14 @@ run_gapseq() {
 
     log_msg "[RUN] gapseq on: $BASENAME"
 
+    cd "$PBS_O_WORKDIR/gapseq_output" || exit 1
     gapseq find -p all -b 12 "$INFILE"
     gapseq find-transport -b 12 "$INFILE"
     gapseq draft \
         -r "${BASENAME}-all-Reactions.tbl" \
         -t "${BASENAME}-Transporter.tbl" \
         -p "${BASENAME}-all-Pathways.tbl" \
+
 
     local GENOME_TIME=$(( $(date +%s) - GENOME_START ))
     log_msg "[DONE] $BASENAME - finished in $(fmt_time $GENOME_TIME)"
